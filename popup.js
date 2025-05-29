@@ -180,20 +180,20 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
           <div class="word-item-actions">
             <div class="action-row1">
-              <button class="style-btn ${currentStyle === 'default' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
-              <button class="style-btn ${currentStyle === 'green' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
-              <button class="style-btn ${currentStyle === 'underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
+              <button class="style-btn" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
+              <button class="style-btn" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
+              <button class="style-btn" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
               <button class="style-btn" data-word="${item.word}" data-action="delete" title="Remove Word">5</button>
-              <button class="style-btn ${currentStyle === 'custom_a' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_a" title="Apply Custom Style A">A</button>
-              <button class="style-btn ${currentStyle === 'custom_b' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_b" title="Apply Custom Style B">B</button>
+              <button class="style-btn" data-word="${item.word}" data-style="custom_a" title="Apply Custom Style A">A</button>
+              <button class="style-btn" data-word="${item.word}" data-style="custom_b" title="Apply Custom Style B">B</button>
             </div>
             <div class="action-row2">
-              <button class="style-btn ${currentStyle === 'blue' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
-              <button class="style-btn ${currentStyle === 'yellow_bg' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
-              <button class="style-btn ${currentStyle === 'bold' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
-              <button class="style-btn ${currentStyle === 'italic_underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
-              <button class="style-btn ${currentStyle === 'custom_c' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_c" title="Apply Custom Style C">C</button>
-              <button class="style-btn ${currentStyle === 'custom_d' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_d" title="Apply Custom Style D">D</button>
+              <button class="style-btn" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
+              <button class="style-btn" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
+              <button class="style-btn" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
+              <button class="style-btn" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
+              <button class="style-btn" data-word="${item.word}" data-style="custom_c" title="Apply Custom Style C">C</button>
+              <button class="style-btn" data-word="${item.word}" data-style="custom_d" title="Apply Custom Style D">D</button>
             </div>
           </div>
         </div>
