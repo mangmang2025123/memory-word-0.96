@@ -55,6 +55,11 @@ document.addEventListener('mousemove', function(e) {
 });
 
 // --- Helper Functions ---
+// Function to escape special characters for use in a regular expression
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
 function getSelectedWord() {
   return lastMouseEvent ? getWordUnderCursor(lastMouseEvent) : null;
 }
@@ -338,7 +343,7 @@ function getHighlightClass(style) {
 // Highlight a specific word with a given style
 function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
   const className = getHighlightClass(style);
-  const regex = new RegExp(`\\b${word}\\b`, 'gi');
+  const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi'); // Use escaped word/phrase
   const walker = document.createTreeWalker(
     rootNode,
     NodeFilter.SHOW_TEXT,
@@ -414,11 +419,15 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
 
 // Highlight all saved words across the entire document based on their stored style
 function highlightSavedWords() {
-  for (const word in savedWords) {
-    if (savedWords.hasOwnProperty(word)) {
+  const wordsToHighlight = Object.keys(savedWords);
+  // Sort by length descending to prioritize longer phrases
+  wordsToHighlight.sort((a, b) => b.length - a.length);
+
+  wordsToHighlight.forEach(word => {
+    if (savedWords.hasOwnProperty(word)) { // Should always be true
       applyStyleToWordOccurrences(word, savedWords[word].style, document.body);
     }
-  }
+  });
 }
 
 // Remove all highlights for a specific word, regardless of style
@@ -491,11 +500,14 @@ function mutationCallback(mutationsList, observer) {
               addedNode.tagName === 'STYLE') {
             return; 
           }
-          for (const word in savedWords) {
+          // Apply highlights, longest first
+          const wordsToApply = Object.keys(savedWords).sort((a, b) => b.length - a.length);
+          wordsToApply.forEach(word => {
             if (savedWords.hasOwnProperty(word)) {
-              applyStyleToWordOccurrences(word, savedWords[word].style, addedNode);
+                 applyStyleToWordOccurrences(word, savedWords[word].style, addedNode);
             }
-          }
+          });
+
         } else if (addedNode.nodeType === Node.TEXT_NODE && addedNode.parentElement) {
           const parentElement = addedNode.parentElement;
           const parentClassList = parentElement.classList;
@@ -511,11 +523,13 @@ function mutationCallback(mutationsList, observer) {
               parentElement.tagName === 'STYLE') {
             return;
           }
-          for (const word in savedWords) {
+          // Apply highlights, longest first
+          const wordsToApply = Object.keys(savedWords).sort((a, b) => b.length - a.length);
+          wordsToApply.forEach(word => {
             if (savedWords.hasOwnProperty(word)) {
-              applyStyleToWordOccurrences(word, savedWords[word].style, parentElement);
+                applyStyleToWordOccurrences(word, savedWords[word].style, parentElement);
             }
-          }
+          });
         }
       });
     }

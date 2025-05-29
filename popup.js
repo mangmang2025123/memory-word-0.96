@@ -34,36 +34,34 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   function handleManualAddWord() {
-    const word = manualWordInput.value.trim().toLowerCase();
+    let phrase = manualWordInput.value.trim().toLowerCase();
+    phrase = phrase.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
 
-    if (!word) {
-      alert('Please enter a word.');
+    if (!phrase) {
+      alert('Please enter a word or phrase.');
       return;
     }
 
-    // Basic validation: only allow English letters
-    if (!/^[a-z]+$/i.test(word)) {
-      alert('Invalid word. Please use English letters only.');
-      manualWordInput.value = ''; // Clear invalid input
+    // Validation: allow English letters and single spaces between words
+    if (!/^[a-z]+(\s[a-z]+)*$/i.test(phrase)) {
+      alert('Invalid format. Please use English letters and single spaces between words (e.g., \'hello world\').');
+      // Do not clear input here, let user correct it.
       return;
     }
     
     chrome.storage.local.get(['savedWordsMap'], function(result) {
       const wordsMap = result.savedWordsMap || {};
-      if (wordsMap.hasOwnProperty(word)) {
-        alert('Word already in list.');
+      if (wordsMap.hasOwnProperty(phrase)) {
+        alert('Word or phrase already in list.');
       } else {
-        wordsMap[word] = { style: 'default', added: Date.now() }; // 'default' style as per content.js
+        wordsMap[phrase] = { style: 'default', added: Date.now() }; 
         chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
           if (chrome.runtime.lastError) {
-            console.error("Error saving manually added word:", chrome.runtime.lastError.message);
-            alert('Error saving word: ' + chrome.runtime.lastError.message);
+            console.error("Error saving manually added word/phrase:", chrome.runtime.lastError.message);
+            alert('Error saving word/phrase: ' + chrome.runtime.lastError.message);
           } else {
-            manualWordInput.value = ''; // Clear input field
-            // loadWords(); // This will be called by the storage.onChanged listener
-            // Optionally, provide direct feedback if storage.onChanged is too slow or not guaranteed
-            // For now, relying on storage.onChanged which calls loadWords.
-            console.log(`"${word}" added manually.`);
+            manualWordInput.value = ''; // Clear input field after successful save
+            console.log(`"${phrase}" added manually.`);
           }
         });
       }
@@ -171,25 +169,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const wordsHTML = wordsArray.map(item => {
       const formattedTime = item.added ? new Date(item.added).toLocaleString() : 'N/A';
+      const currentStyle = item.style || 'default'; // Ensure 'default' if item.style is undefined
+
       return `
         <div class="word-item">
           <div class="word-details">
             <span class="word-text">${item.word}</span>
-            <span class="word-style">(${item.style || 'default'})</span>
+            <span class="word-style">(${currentStyle})</span>
             <span class="word-timestamp">Added: ${formattedTime}</span>
           </div>
           <div class="word-item-actions">
             <div class="action-row1">
-              <button class="style-btn" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
-              <button class="style-btn" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
-              <button class="style-btn" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
+              <button class="style-btn ${currentStyle === 'default' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
+              <button class="style-btn ${currentStyle === 'green' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
+              <button class="style-btn ${currentStyle === 'underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
               <button class="style-btn" data-word="${item.word}" data-action="delete" title="Remove Word">5</button>
             </div>
             <div class="action-row2">
-              <button class="style-btn" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
-              <button class="style-btn" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
-              <button class="style-btn" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
-              <button class="style-btn" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
+              <button class="style-btn ${currentStyle === 'blue' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
+              <button class="style-btn ${currentStyle === 'yellow_bg' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
+              <button class="style-btn ${currentStyle === 'bold' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
+              <button class="style-btn ${currentStyle === 'italic_underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
             </div>
           </div>
         </div>
