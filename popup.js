@@ -341,15 +341,13 @@ document.addEventListener('DOMContentLoaded', function() {
                   }, function(response) {
                     if (chrome.runtime.lastError) {
                       console.warn("Error sending applyStyleToWord to content script:", chrome.runtime.lastError.message);
-                      // UI will still update due to storage change listener
                     }
-                    // loadWords(); // UI updates via storage.onChanged listener
                   });
                 } else {
-                   // If no active tab, UI still updates via storage listener
                    console.warn("No active tab to send applyStyleToWord message.");
                 }
               });
+              loadWords(); // Explicitly reload words and refresh UI AFTER storage set and message attempt.
             }
           });
         }
