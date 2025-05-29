@@ -8,18 +8,67 @@ document.addEventListener('DOMContentLoaded', function() {
   const exportWordsBtn = document.getElementById('exportWordsBtn');
   const importWordsBtn = document.getElementById('importWordsBtn');
   const importFile = document.getElementById('importFile');
+  const manualWordInput = document.getElementById('manualWordInput');
+  const manualAddBtn = document.getElementById('manualAddBtn');
+  const searchInput = document.getElementById('searchInput');
+  const sortOrderSelect = document.getElementById('sortOrder');
+
+  let currentSortOrder = 'alpha-asc'; // Default sort order
 
   // Load and display words when popup opens
   loadWords();
 
   // Event listeners
-  refreshBtn.addEventListener('click', loadWords); // Consider if refresh is still needed with auto-updates
+  refreshBtn.addEventListener('click', loadWords); 
   clearAllBtn.addEventListener('click', clearAllWords);
   exportWordsBtn.addEventListener('click', exportWords);
   importWordsBtn.addEventListener('click', function() {
     importFile.click(); // Trigger hidden file input
   });
   importFile.addEventListener('change', importWords);
+  manualAddBtn.addEventListener('click', handleManualAddWord);
+  searchInput.addEventListener('input', loadWords); 
+  sortOrderSelect.addEventListener('change', function() {
+    currentSortOrder = this.value;
+    loadWords();
+  });
+
+  function handleManualAddWord() {
+    const word = manualWordInput.value.trim().toLowerCase();
+
+    if (!word) {
+      alert('Please enter a word.');
+      return;
+    }
+
+    // Basic validation: only allow English letters
+    if (!/^[a-z]+$/i.test(word)) {
+      alert('Invalid word. Please use English letters only.');
+      manualWordInput.value = ''; // Clear invalid input
+      return;
+    }
+    
+    chrome.storage.local.get(['savedWordsMap'], function(result) {
+      const wordsMap = result.savedWordsMap || {};
+      if (wordsMap.hasOwnProperty(word)) {
+        alert('Word already in list.');
+      } else {
+        wordsMap[word] = { style: 'default', added: Date.now() }; // 'default' style as per content.js
+        chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
+          if (chrome.runtime.lastError) {
+            console.error("Error saving manually added word:", chrome.runtime.lastError.message);
+            alert('Error saving word: ' + chrome.runtime.lastError.message);
+          } else {
+            manualWordInput.value = ''; // Clear input field
+            // loadWords(); // This will be called by the storage.onChanged listener
+            // Optionally, provide direct feedback if storage.onChanged is too slow or not guaranteed
+            // For now, relying on storage.onChanged which calls loadWords.
+            console.log(`"${word}" added manually.`);
+          }
+        });
+      }
+    });
+  }
 
   function loadWords() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -28,16 +77,26 @@ document.addEventListener('DOMContentLoaded', function() {
         loadWordsFromStorage();
         return;
       }
-      // content.js sends words as an array of {word: "text", style: "styleName"}
+      // content.js sends words as an array of {word: "text", style: "styleName", added: timestamp}
       chrome.tabs.sendMessage(tabs[0].id, {action: 'getWords'}, function(response) {
         if (chrome.runtime.lastError) {
           console.warn("Error sending message to content script:", chrome.runtime.lastError.message, "Falling back to storage.");
-          loadWordsFromStorage();
+          loadWordsFromStorage(); 
         } else if (response && response.words && Array.isArray(response.words)) {
-          displayWords(response.words); // response.words is already an array of objects
+          let wordsArray = response.words;
+          
+          // 1. Sort the array
+          sortWordsArray(wordsArray);
+
+          // 2. Filter by search term
+          const searchTerm = searchInput.value.trim().toLowerCase();
+          if (searchTerm) {
+            wordsArray = wordsArray.filter(item => item.word.toLowerCase().includes(searchTerm));
+          }
+          displayWords(wordsArray);
         } else {
           console.warn("Invalid response from content script or no words. Falling back to storage.");
-          loadWordsFromStorage();
+          loadWordsFromStorage(); 
         }
       });
     });
@@ -46,51 +105,106 @@ document.addEventListener('DOMContentLoaded', function() {
   function loadWordsFromStorage() {
     chrome.storage.local.get(['savedWordsMap'], function(result) {
       const wordsMap = result.savedWordsMap || {};
-      const wordsArray = Object.keys(wordsMap).map(word => ({
+      let wordsArray = Object.keys(wordsMap).map(word => ({
         word: word,
-        style: wordsMap[word].style 
+        style: wordsMap[word].style,
+        added: wordsMap[word].added 
       }));
+
+      // 1. Sort the array
+      sortWordsArray(wordsArray);
+
+      // 2. Filter by search term
+      const searchTerm = searchInput.value.trim().toLowerCase();
+      if (searchTerm) {
+        wordsArray = wordsArray.filter(item => item.word.toLowerCase().includes(searchTerm));
+      }
       displayWords(wordsArray);
     });
   }
 
-  // wordsArray is an array of objects: [{word: "text", style: "styleName"}, ...]
+  function sortWordsArray(wordsArray) {
+    switch (currentSortOrder) {
+      case 'alpha-asc':
+        wordsArray.sort((a, b) => a.word.localeCompare(b.word));
+        break;
+      case 'alpha-desc':
+        wordsArray.sort((a, b) => b.word.localeCompare(a.word));
+        break;
+      case 'time-desc': // Newest first
+        wordsArray.sort((a, b) => (b.added || 0) - (a.added || 0));
+        break;
+      case 'time-asc': // Oldest first
+        wordsArray.sort((a, b) => (a.added || 0) - (b.added || 0));
+        break;
+      default:
+        wordsArray.sort((a, b) => a.word.localeCompare(b.word)); // Fallback to alpha-asc
+    }
+  }
+
+  // wordsArray is an array of objects: [{word: "text", style: "styleName", added: timestamp}, ...]
+  // It now receives a pre-sorted and pre-filtered array.
   function displayWords(wordsArray) {
-    wordCountEl.textContent = wordsArray.length;
+    wordCountEl.textContent = wordsArray.length; 
     
-    if (wordsArray.length === 0) {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    if (wordsArray.length === 0 && searchTerm) {
+      wordContainer.innerHTML = `
+        <div class="empty-state">
+          <div>No words match your search for "${searchTerm}".</div>
+        </div>
+      `;
+      return;
+    } else if (wordsArray.length === 0) {
       wordContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">📚</div>
           <div>No words saved yet</div>
-          <div style="font-size: 11px; margin-top: 4px;">Start collecting words by using hotkeys 2, 3, or 4 on any webpage!</div>
+          <div style="font-size: 11px; margin-top: 4px;">Start collecting words by using hotkeys on any webpage!</div>
         </div>
       `;
       return;
     }
 
-    // Sort words alphabetically by the word itself
-    wordsArray.sort((a, b) => a.word.localeCompare(b.word));
+    // Array is already sorted before being passed to displayWords.
+    // The old sort line: wordsArray.sort((a, b) => a.word.localeCompare(b.word)); IS REMOVED.
 
-    const wordsHTML = wordsArray.map(item => `
-      <div class="word-item">
-        <span class="word-text">${item.word} <span class="word-style">(${item.style || 'default'})</span></span>
-        <button class="remove-btn" data-word="${item.word}">Remove</button>
-      </div>
-    `).join('');
+    const wordsHTML = wordsArray.map(item => {
+      const formattedTime = item.added ? new Date(item.added).toLocaleString() : 'N/A';
+      return `
+        <div class="word-item">
+          <div class="word-details">
+            <span class="word-text">${item.word}</span>
+            <span class="word-style">(${item.style || 'default'})</span>
+            <span class="word-timestamp">Added: ${formattedTime}</span>
+          </div>
+          <div class="word-item-actions">
+            <div class="action-row1">
+              <button class="style-btn" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
+              <button class="style-btn" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
+              <button class="style-btn" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
+              <button class="style-btn" data-word="${item.word}" data-action="delete" title="Remove Word">5</button>
+            </div>
+            <div class="action-row2">
+              <button class="style-btn" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
+              <button class="style-btn" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
+              <button class="style-btn" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
+              <button class="style-btn" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     wordContainer.innerHTML = wordsHTML;
 
-    // Add event listeners to remove buttons
-    const removeButtons = wordContainer.querySelectorAll('.remove-btn');
-    removeButtons.forEach(btn => {
-      btn.addEventListener('click', function() {
-        const word = this.getAttribute('data-word');
-        removeWord(word); // This will trigger a reload via storage change or direct call
-      });
+    // Event listeners for the new buttons
+    const styleButtons = wordContainer.querySelectorAll('.style-btn');
+    styleButtons.forEach(btn => {
+      btn.addEventListener('click', handleWordItemAction);
     });
 
-    // Add scrollbar class if needed (it's already in HTML, but ensure it's dynamic if content shorter)
+    // Add scrollbar class if needed
     if (wordContainer.scrollHeight > wordContainer.clientHeight) {
         wordContainer.classList.add('scrollbar');
     } else {
@@ -193,6 +307,52 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  function handleWordItemAction(event) {
+    const button = event.target;
+    const word = button.dataset.word;
+    const style = button.dataset.style;
+    const action = button.dataset.action;
+
+    if (action === 'delete') {
+      removeWord(word); // This already handles storage and messaging content.js
+    } else if (style) {
+      // Update style in storage directly from popup
+      chrome.storage.local.get(['savedWordsMap'], function(result) {
+        const wordsMap = result.savedWordsMap || {};
+        if (wordsMap.hasOwnProperty(word)) {
+          wordsMap[word].style = style;
+          // The 'added' timestamp is intentionally not modified here
+          chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
+            if (chrome.runtime.lastError) {
+              console.error("Error updating style from popup:", chrome.runtime.lastError.message);
+              alert('Error updating style: ' + chrome.runtime.lastError.message);
+            } else {
+              // Inform content script to apply the style on the page
+              chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs.length > 0 && tabs[0].id) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    action: 'applyStyleToWord', // New action for content.js
+                    word: word,
+                    style: style
+                  }, function(response) {
+                    if (chrome.runtime.lastError) {
+                      console.warn("Error sending applyStyleToWord to content script:", chrome.runtime.lastError.message);
+                      // UI will still update due to storage change listener
+                    }
+                    // loadWords(); // UI updates via storage.onChanged listener
+                  });
+                } else {
+                   // If no active tab, UI still updates via storage listener
+                   console.warn("No active tab to send applyStyleToWord message.");
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  }
+
   function importWords(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -262,6 +422,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (namespace === 'local' && changes.savedWordsMap) {
       // Data has changed, reload words in the popup
       loadWords();
+    }
+  });
+
+  // Add event listener for the Escape key to close the popup
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      window.close();
     }
   });
 });

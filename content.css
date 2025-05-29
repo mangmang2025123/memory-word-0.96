@@ -36,6 +36,51 @@
   box-shadow: none !important;
 }
 
+/* Blue style */
+.word-memory-highlight-blue {
+  background-color: lightblue !important;
+  color: black !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+/* Yellow Background style */
+.word-memory-highlight-yellow_bg {
+  background-color: yellow !important;
+  color: black !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+/* Bold style */
+.word-memory-highlight-bold {
+  font-weight: bold !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  text-decoration: none !important;
+  padding: 1px 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Italic Underline style */
+.word-memory-highlight-italic_underline {
+  font-style: italic !important;
+  text-decoration: underline !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  font-weight: normal !important;
+  padding: 1px 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
 .word-memory-message {
   position: fixed;
   top: 20px;
