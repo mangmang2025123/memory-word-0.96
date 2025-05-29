@@ -81,6 +81,49 @@
   box-shadow: none !important;
 }
 
+/* Custom Style A */
+.word-memory-highlight-custom_a {
+  background-color: #E0E0E0 !important; /* Light grey background */
+  color: #212121 !important; /* Dark grey text */
+  padding: 1px 3px !important; /* Consistent with default and blue/yellow_bg */
+  border-radius: 3px !important; /* Consistent */
+  text-decoration: none !important; /* Consistent */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; /* Consistent */
+}
+
+/* Custom Style B */
+.word-memory-highlight-custom_b {
+  background-color: #37474F !important; /* Dark slate grey background */
+  color: #ECEFF1 !important; /* Very light grey/off-white text */
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
+/* Custom Style C */
+.word-memory-highlight-custom_c {
+  background-color: #FFF9C4 !important; /* Pale yellow background */
+  color: #795548 !important; /* Brown text */
+  border: 1px solid #795548 !important;
+  padding: 0px 2px !important; /* Adjusted padding slightly for bordered elements */
+  display: inline-block !important; /* Helps manage padding and border visually with text */
+  line-height: normal !important;
+  border-radius: 3px !important; /* Added for consistency */
+  text-decoration: none !important; /* Added for consistency */
+}
+
+/* Custom Style D */
+.word-memory-highlight-custom_d {
+  background-color: #FCE4EC !important; /* Light pink background */
+  color: #880E4F !important; /* Dark magenta text */
+  font-family: 'Courier New', Courier, monospace !important;
+  padding: 1px 3px !important;
+  border-radius: 3px !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+}
+
 .word-memory-message {
   position: fixed;
   top: 20px;

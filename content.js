@@ -15,6 +15,10 @@ const STYLE_BLUE = 'blue';
 const STYLE_YELLOW_BG = 'yellow_bg';
 const STYLE_BOLD = 'bold';
 const STYLE_ITALIC_UNDERLINE = 'italic_underline';
+const STYLE_CUSTOM_A = 'custom_a';
+const STYLE_CUSTOM_B = 'custom_b';
+const STYLE_CUSTOM_C = 'custom_c';
+const STYLE_CUSTOM_D = 'custom_d';
 
 // Load saved words from storage
 chrome.storage.local.get(['savedWordsMap'], function(result) {
@@ -220,13 +224,17 @@ function getWordUnderCursor(e) {
 
   // Priority 1: Check if the cursor is directly over a highlight span
   const highlightClasses = [
-    'word-memory-highlight', 
-    `word-memory-highlight-${STYLE_GREEN}`, 
+    'word-memory-highlight', // Default style
+    `word-memory-highlight-${STYLE_GREEN}`,
     `word-memory-highlight-${STYLE_UNDERLINE}`,
     `word-memory-highlight-${STYLE_BLUE}`,
     `word-memory-highlight-${STYLE_YELLOW_BG}`,
     `word-memory-highlight-${STYLE_BOLD}`,
-    `word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`
+    `word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`,
+    `word-memory-highlight-${STYLE_CUSTOM_A}`,
+    `word-memory-highlight-${STYLE_CUSTOM_B}`,
+    `word-memory-highlight-${STYLE_CUSTOM_C}`,
+    `word-memory-highlight-${STYLE_CUSTOM_D}`
   ];
   for (const cls of highlightClasses) {
     if (element.classList.contains(cls)) {
@@ -337,7 +345,11 @@ function getHighlightClass(style) {
   if (style === STYLE_YELLOW_BG) return `word-memory-highlight-${STYLE_YELLOW_BG}`;
   if (style === STYLE_BOLD) return `word-memory-highlight-${STYLE_BOLD}`;
   if (style === STYLE_ITALIC_UNDERLINE) return `word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`;
-  return 'word-memory-highlight'; // Default
+  if (style === STYLE_CUSTOM_A) return `word-memory-highlight-${STYLE_CUSTOM_A}`;
+  if (style === STYLE_CUSTOM_B) return `word-memory-highlight-${STYLE_CUSTOM_B}`;
+  if (style === STYLE_CUSTOM_C) return `word-memory-highlight-${STYLE_CUSTOM_C}`;
+  if (style === STYLE_CUSTOM_D) return `word-memory-highlight-${STYLE_CUSTOM_D}`;
+  return 'word-memory-highlight'; // Default for STYLE_DEFAULT or unknown
 }
 
 // Highlight a specific word with a given style
@@ -360,7 +372,11 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
               parentClassList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
-              node.parentElement.closest('.word-memory-highlight, .word-memory-highlight-green, .word-memory-highlight-underline, .word-memory-highlight-blue, .word-memory-highlight-yellow_bg, .word-memory-highlight-bold, .word-memory-highlight-italic_underline')) {
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`) ||
+              node.parentElement.closest('.word-memory-highlight, .word-memory-highlight-green, .word-memory-highlight-underline, .word-memory-highlight-blue, .word-memory-highlight-yellow_bg, .word-memory-highlight-bold, .word-memory-highlight-italic_underline, .word-memory-highlight-custom_a, .word-memory-highlight-custom_b, .word-memory-highlight-custom_c, .word-memory-highlight-custom_d')) {
             return NodeFilter.FILTER_REJECT;
           }
         }
@@ -390,7 +406,11 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
         parentClasses.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
         parentClasses.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
         parentClasses.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
-        parentClasses.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`)) {
+        parentClasses.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) {
         return;
     }
 
@@ -433,13 +453,17 @@ function highlightSavedWords() {
 // Remove all highlights for a specific word, regardless of style
 function removeHighlight(word) {
   const highlightSelectors = [
-    '.word-memory-highlight',
+    '.word-memory-highlight', // Default style
     `.word-memory-highlight-${STYLE_GREEN}`,
     `.word-memory-highlight-${STYLE_UNDERLINE}`,
     `.word-memory-highlight-${STYLE_BLUE}`,
     `.word-memory-highlight-${STYLE_YELLOW_BG}`,
     `.word-memory-highlight-${STYLE_BOLD}`,
-    `.word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`
+    `.word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_A}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_B}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_C}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_D}`
   ];
   highlightSelectors.forEach(selector => {
     const highlights = document.querySelectorAll(selector);
@@ -488,13 +512,17 @@ function mutationCallback(mutationsList, observer) {
       mutation.addedNodes.forEach(addedNode => {
         if (addedNode.nodeType === Node.ELEMENT_NODE) {
           const classList = addedNode.classList;
-          if (classList && (classList.contains('word-memory-highlight') ||
+          if (classList && (classList.contains('word-memory-highlight') || // Default
               classList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
               classList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
               classList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
               classList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
               classList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
-              classList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`)) ||
+              classList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) ||
               addedNode.closest('.word-memory-message') ||
               addedNode.tagName === 'SCRIPT' || 
               addedNode.tagName === 'STYLE') {
@@ -511,13 +539,17 @@ function mutationCallback(mutationsList, observer) {
         } else if (addedNode.nodeType === Node.TEXT_NODE && addedNode.parentElement) {
           const parentElement = addedNode.parentElement;
           const parentClassList = parentElement.classList;
-          if (parentClassList && (parentClassList.contains('word-memory-highlight') ||
+          if (parentClassList && (parentClassList.contains('word-memory-highlight') || // Default
               parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
-              parentClassList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`)) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) ||
               parentElement.closest('.word-memory-message') ||
               parentElement.tagName === 'SCRIPT' ||
               parentElement.tagName === 'STYLE') {
