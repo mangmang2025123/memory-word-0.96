@@ -11,10 +11,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const manualWordInput = document.getElementById('manualWordInput');
   const manualAddBtn = document.getElementById('manualAddBtn');
   const searchInput = document.getElementById('searchInput');
-  const sortOrderSelect = document.getElementById('sortOrder');
+  const sortOrderSelect = document.getElementById('sortOrder'); // sortOrderSelect is already defined here
+
+  if (searchInput) { // Clear search input on popup init
+    searchInput.value = '';
+  }
 
   let currentSortOrder = 'alpha-asc'; // Default sort order
-  const sortOrderSelect = document.getElementById('sortOrder'); // Ensure sortOrderSelect is defined here
+  // const sortOrderSelect = document.getElementById('sortOrder'); // Already defined above
 
   // Load saved sort order and then load words
   chrome.storage.local.get(['wordMemorySortOrder'], function(result) {
@@ -100,8 +104,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chrome.runtime.lastError) {
           console.warn("Error sending message to content script:", chrome.runtime.lastError.message, "Falling back to storage.");
           loadWordsFromStorage(); 
-        } else if (response && response.words && Array.isArray(response.words)) {
-          let wordsArray = response.words;
+        } else if (response && response.wordsWithDetails && Array.isArray(response.wordsWithDetails)) { // FIX 1: Check for wordsWithDetails
+          let wordsArray = response.wordsWithDetails; // FIX 1: Use wordsWithDetails
           
           // 1. Sort the array
           sortWordsArray(wordsArray);
@@ -122,6 +126,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function loadWordsFromStorage() {
     chrome.storage.local.get(['savedWordsMap'], function(result) {
+      if (chrome.runtime.lastError) { // FIX 2: Add Error Checking
+        console.error("Error loading savedWordsMap from storage:", chrome.runtime.lastError.message);
+        displayWords([]); // Display an empty list or handle error appropriately
+        return;
+      }
       const wordsMap = result.savedWordsMap || {};
       let wordsArray = Object.keys(wordsMap).map(word => ({
         word: word,
