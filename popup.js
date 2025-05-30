@@ -14,9 +14,23 @@ document.addEventListener('DOMContentLoaded', function() {
   const sortOrderSelect = document.getElementById('sortOrder');
 
   let currentSortOrder = 'alpha-asc'; // Default sort order
+  const sortOrderSelect = document.getElementById('sortOrder'); // Ensure sortOrderSelect is defined here
 
-  // Load and display words when popup opens
-  loadWords();
+  // Load saved sort order and then load words
+  chrome.storage.local.get(['wordMemorySortOrder'], function(result) {
+    if (chrome.runtime.lastError) {
+      console.error("Error loading sort order:", chrome.runtime.lastError.message);
+    } else {
+      if (result.wordMemorySortOrder) {
+        currentSortOrder = result.wordMemorySortOrder;
+        if (sortOrderSelect) { // Check if sortOrderSelect exists before setting its value
+            sortOrderSelect.value = currentSortOrder;
+        }
+      }
+    }
+    // Initial load of words - MUST be here, after potentially updating currentSortOrder
+    loadWords(); 
+  });
 
   // Event listeners
   refreshBtn.addEventListener('click', loadWords); 
@@ -30,6 +44,12 @@ document.addEventListener('DOMContentLoaded', function() {
   searchInput.addEventListener('input', loadWords); 
   sortOrderSelect.addEventListener('change', function() {
     currentSortOrder = this.value;
+    chrome.storage.local.set({ wordMemorySortOrder: currentSortOrder }, function() {
+      if (chrome.runtime.lastError) {
+        console.error("Error saving sort order: " + chrome.runtime.lastError.message);
+      }
+      // Optional: console.log("Sort order saved:", currentSortOrder);
+    });
     loadWords();
   });
 
