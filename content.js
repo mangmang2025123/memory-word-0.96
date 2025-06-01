@@ -53,6 +53,51 @@ chrome.storage.local.get(['savedWordsMap'], function(result) {
   }
 });
 
+// Listen for storage changes to sync savedWords and update highlights
+chrome.storage.onChanged.addListener(function(changes, namespace) {
+  if (namespace === 'local' && changes.savedWordsMap) {
+    console.log("Word Memory Assistant: savedWordsMap changed externally. Updating content script's savedWords.");
+    const newWordsMap = changes.savedWordsMap.newValue || {};
+    // const oldWordsMap = changes.savedWordsMap.oldValue || {}; // Not strictly needed for current "remove all, re-highlight all" strategy
+
+    // Update the in-memory savedWords
+    savedWords = newWordsMap;
+
+    // Remove all existing highlights first
+    // This list should ideally be dynamically generated or kept exhaustive
+    // Based on previous steps, this list is already exhaustive.
+    const allHighlightSelectors = [
+      '.word-memory-highlight',
+      `.word-memory-highlight-${STYLE_GREEN}`,
+      `.word-memory-highlight-${STYLE_UNDERLINE}`,
+      `.word-memory-highlight-${STYLE_BLUE}`,
+      `.word-memory-highlight-${STYLE_YELLOW_BG}`,
+      `.word-memory-highlight-${STYLE_BOLD}`,
+      `.word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_A}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_B}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_C}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_D}`
+    ];
+    try {
+      document.querySelectorAll(allHighlightSelectors.join(', ')).forEach(span => {
+          const parent = span.parentElement;
+          if (parent) {
+              parent.replaceChild(document.createTextNode(span.textContent), span);
+              parent.normalize();
+          }
+      });
+    } catch (e) {
+      console.error("Word Memory Assistant: Error removing old highlights:", e);
+    }
+
+    // Re-apply highlights for the new state
+    if (Object.keys(savedWords).length > 0) { // Only highlight if there are words to highlight
+        highlightSavedWords();
+    }
+  }
+});
+
 // Track mouse position
 document.addEventListener('mousemove', function(e) {
   lastMouseEvent = e;
@@ -365,8 +410,8 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
           const parentTag = node.parentElement.tagName;
           const parentClassList = node.parentElement.classList;
           if (parentTag === 'SCRIPT' || parentTag === 'STYLE' ||
-              parentClassList.contains('word-memory-highlight') || 
-              parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) || 
+              parentClassList.contains('word-memory-highlight') ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
               parentClassList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
@@ -587,9 +632,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     const wordsWithDetails = [];
     for (const word in savedWords) {
       if (savedWords.hasOwnProperty(word)) {
-        wordsWithDetails.push({ 
-          word: word, 
-          style: savedWords[word].style, 
+        wordsWithDetails.push({
+          word: word,
+          style: savedWords[word].style,
           added: savedWords[word].added // Include the timestamp
         });
       }

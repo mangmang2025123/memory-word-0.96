@@ -33,11 +33,11 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     // Initial load of words - MUST be here, after potentially updating currentSortOrder
-    loadWords(); 
+    loadWords();
   });
 
   // Event listeners
-  refreshBtn.addEventListener('click', loadWords); 
+  refreshBtn.addEventListener('click', loadWords);
   clearAllBtn.addEventListener('click', clearAllWords);
   exportWordsBtn.addEventListener('click', exportWords);
   importWordsBtn.addEventListener('click', function() {
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   importFile.addEventListener('change', importWords);
   manualAddBtn.addEventListener('click', handleManualAddWord);
-  searchInput.addEventListener('input', loadWords); 
+  searchInput.addEventListener('input', loadWords);
   sortOrderSelect.addEventListener('change', function() {
     currentSortOrder = this.value;
     chrome.storage.local.set({ wordMemorySortOrder: currentSortOrder }, function() {
@@ -72,13 +72,13 @@ document.addEventListener('DOMContentLoaded', function() {
       // Do not clear input here, let user correct it.
       return;
     }
-    
+
     chrome.storage.local.get(['savedWordsMap'], function(result) {
       const wordsMap = result.savedWordsMap || {};
       if (wordsMap.hasOwnProperty(phrase)) {
         alert('Word or phrase already in list.');
       } else {
-        wordsMap[phrase] = { style: 'default', added: Date.now() }; 
+        wordsMap[phrase] = { style: 'default', added: Date.now() };
         chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
           if (chrome.runtime.lastError) {
             console.error("Error saving manually added word/phrase:", chrome.runtime.lastError.message);
@@ -103,10 +103,10 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.tabs.sendMessage(tabs[0].id, {action: 'getWords'}, function(response) {
         if (chrome.runtime.lastError) {
           console.warn("Error sending message to content script:", chrome.runtime.lastError.message, "Falling back to storage.");
-          loadWordsFromStorage(); 
+          loadWordsFromStorage();
         } else if (response && response.wordsWithDetails && Array.isArray(response.wordsWithDetails)) { // FIX 1: Check for wordsWithDetails
           let wordsArray = response.wordsWithDetails; // FIX 1: Use wordsWithDetails
-          
+
           // 1. Sort the array
           sortWordsArray(wordsArray);
 
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function() {
           displayWords(wordsArray);
         } else {
           console.warn("Invalid response from content script or no words. Falling back to storage.");
-          loadWordsFromStorage(); 
+          loadWordsFromStorage();
         }
       });
     });
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
       let wordsArray = Object.keys(wordsMap).map(word => ({
         word: word,
         style: wordsMap[word].style,
-        added: wordsMap[word].added 
+        added: wordsMap[word].added
       }));
 
       // 1. Sort the array
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // wordsArray is an array of objects: [{word: "text", style: "styleName", added: timestamp}, ...]
   // It now receives a pre-sorted and pre-filtered array.
   function displayWords(wordsArray) {
-    wordCountEl.textContent = wordsArray.length; 
+    wordCountEl.textContent = wordsArray.length;
     
     const searchTerm = searchInput.value.trim().toLowerCase();
     if (wordsArray.length === 0 && searchTerm) {
