@@ -12,24 +12,7 @@
       background: #f8f9fa;
     }
 
-    .header {
-      background: #2c3e50;
-      color: white;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .header p {
-      margin: 5px 0 0 0;
-      font-size: 12px;
-      opacity: 0.8;
-    }
+    /* Header styles removed */
 
     .content {
       padding: 16px;
@@ -240,6 +223,30 @@
     /* Optional: Define hover for active button if different from normal style-btn hover */
     /* .active-style-btn:hover { background-color: #45a049; } */
 
+    .help-button {
+      position: absolute;
+      top: 8px; /* Adjust as needed for padding from top */
+      right: 8px; /* Adjust as needed for padding from right */
+      width: 24px; /* Small, circular button */
+      height: 24px;
+      padding: 0;
+      border-radius: 50%; /* Makes it circular */
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+      color: #333;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      line-height: 22px; /* Vertically center the '?' */
+      z-index: 100; /* Ensure it's above other content if necessary */
+    }
+
+    .help-button:hover {
+      background-color: #e0e0e0;
+      border-color: #bbb;
+    }
+
     .remove-btn { /* Old button, can be removed if no longer used directly */
       background: #e74c3c; /* Or keep if it's used elsewhere, but it's superseded in word-item */
       color: white;
@@ -303,15 +310,10 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Word Memory Assistant</h1>
-    <p>Build your vocabulary effortlessly</p>
-  </div>
+  <button id="helpBtn" class="help-button">?</button>
+  <!-- Header div removed -->
 
   <div class="content">
-    <div class="instructions">
-      <strong>How to use:</strong> Place your mouse over any word. Press and hold '2' to set/toggle red highlight, '3' for green style, '4' for underline. Press '5' to remove. New words are saved automatically.
-    </div>
 
     <div class="stats">
       <div class="stats-number" id="wordCount">0</div>

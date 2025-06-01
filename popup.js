@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const manualWordInput = document.getElementById('manualWordInput');
   const manualAddBtn = document.getElementById('manualAddBtn');
   const searchInput = document.getElementById('searchInput');
-  const sortOrderSelect = document.getElementById('sortOrder'); // sortOrderSelect is already defined here
+  const sortOrderSelect = document.getElementById('sortOrder');
+  const helpBtn = document.getElementById('helpBtn');
 
   if (searchInput) { // Clear search input on popup init
     searchInput.value = '';
@@ -40,6 +41,11 @@ document.addEventListener('DOMContentLoaded', function() {
   refreshBtn.addEventListener('click', loadWords);
   clearAllBtn.addEventListener('click', clearAllWords);
   exportWordsBtn.addEventListener('click', exportWords);
+  if (helpBtn) {
+    helpBtn.addEventListener('click', function() {
+      window.location.href = 'help.html';
+    });
+  }
   importWordsBtn.addEventListener('click', function() {
     importFile.click(); // Trigger hidden file input
   });
