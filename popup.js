@@ -8,18 +8,95 @@ document.addEventListener('DOMContentLoaded', function() {
   const exportWordsBtn = document.getElementById('exportWordsBtn');
   const importWordsBtn = document.getElementById('importWordsBtn');
   const importFile = document.getElementById('importFile');
+  const manualWordInput = document.getElementById('manualWordInput');
+  const manualAddBtn = document.getElementById('manualAddBtn');
+  const searchInput = document.getElementById('searchInput');
+  const sortOrderSelect = document.getElementById('sortOrder');
+  const helpBtn = document.getElementById('helpBtn');
 
-  // Load and display words when popup opens
-  loadWords();
+  if (searchInput) { // Clear search input on popup init
+    searchInput.value = '';
+  }
+
+  let currentSortOrder = 'alpha-asc'; // Default sort order
+  // const sortOrderSelect = document.getElementById('sortOrder'); // Already defined above
+
+  // Load saved sort order and then load words
+  chrome.storage.local.get(['wordMemorySortOrder'], function(result) {
+    if (chrome.runtime.lastError) {
+      console.error("Error loading sort order:", chrome.runtime.lastError.message);
+    } else {
+      if (result.wordMemorySortOrder) {
+        currentSortOrder = result.wordMemorySortOrder;
+        if (sortOrderSelect) { // Check if sortOrderSelect exists before setting its value
+            sortOrderSelect.value = currentSortOrder;
+        }
+      }
+    }
+    // Initial load of words - MUST be here, after potentially updating currentSortOrder
+    loadWords();
+  });
 
   // Event listeners
-  refreshBtn.addEventListener('click', loadWords); // Consider if refresh is still needed with auto-updates
+  refreshBtn.addEventListener('click', loadWords);
   clearAllBtn.addEventListener('click', clearAllWords);
   exportWordsBtn.addEventListener('click', exportWords);
+  if (helpBtn) {
+    helpBtn.addEventListener('click', function() {
+      window.location.href = 'help.html';
+    });
+  }
   importWordsBtn.addEventListener('click', function() {
     importFile.click(); // Trigger hidden file input
   });
   importFile.addEventListener('change', importWords);
+  manualAddBtn.addEventListener('click', handleManualAddWord);
+  searchInput.addEventListener('input', loadWords);
+  sortOrderSelect.addEventListener('change', function() {
+    currentSortOrder = this.value;
+    chrome.storage.local.set({ wordMemorySortOrder: currentSortOrder }, function() {
+      if (chrome.runtime.lastError) {
+        console.error("Error saving sort order: " + chrome.runtime.lastError.message);
+      }
+      // Optional: console.log("Sort order saved:", currentSortOrder);
+    });
+    loadWords();
+  });
+
+  function handleManualAddWord() {
+    let phrase = manualWordInput.value.trim().toLowerCase();
+    phrase = phrase.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
+
+    if (!phrase) {
+      alert('Please enter a word or phrase.');
+      return;
+    }
+
+    // Validation: allow English letters, single spaces between words, and hyphens within words
+    if (!/^[a-z]+(?:-[a-z]+)*(\s[a-z]+(?:-[a-z]+)*)*$/i.test(phrase)) {
+      alert('Invalid format. Please use English letters, single spaces between words, and hyphens only within words (e.g., "hello world", "record-breaking", "state-of-the-art example").');
+      // Do not clear input here, let user correct it.
+      return;
+    }
+
+    chrome.storage.local.get(['savedWordsMap'], function(result) {
+      const wordsMap = result.savedWordsMap || {};
+      if (wordsMap.hasOwnProperty(phrase)) {
+        alert('Word or phrase already in list.');
+      } else {
+        wordsMap[phrase] = { style: 'default', added: Date.now() };
+        chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
+          if (chrome.runtime.lastError) {
+            console.error("Error saving manually added word/phrase:", chrome.runtime.lastError.message);
+            alert('Error saving word/phrase: ' + chrome.runtime.lastError.message);
+          } else {
+            manualWordInput.value = ''; // Clear input field after successful save
+            console.log(`"${phrase}" added manually.`);
+          }
+        });
+      }
+    });
+  }
 
   function loadWords() {
     chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
@@ -28,13 +105,23 @@ document.addEventListener('DOMContentLoaded', function() {
         loadWordsFromStorage();
         return;
       }
-      // content.js sends words as an array of {word: "text", style: "styleName"}
+      // content.js sends words as an array of {word: "text", style: "styleName", added: timestamp}
       chrome.tabs.sendMessage(tabs[0].id, {action: 'getWords'}, function(response) {
         if (chrome.runtime.lastError) {
           console.warn("Error sending message to content script:", chrome.runtime.lastError.message, "Falling back to storage.");
           loadWordsFromStorage();
-        } else if (response && response.words && Array.isArray(response.words)) {
-          displayWords(response.words); // response.words is already an array of objects
+        } else if (response && response.wordsWithDetails && Array.isArray(response.wordsWithDetails)) { // FIX 1: Check for wordsWithDetails
+          let wordsArray = response.wordsWithDetails; // FIX 1: Use wordsWithDetails
+
+          // 1. Sort the array
+          sortWordsArray(wordsArray);
+
+          // 2. Filter by search term
+          const searchTerm = searchInput.value.trim().toLowerCase();
+          if (searchTerm) {
+            wordsArray = wordsArray.filter(item => item.word.toLowerCase().includes(searchTerm));
+          }
+          displayWords(wordsArray);
         } else {
           console.warn("Invalid response from content script or no words. Falling back to storage.");
           loadWordsFromStorage();
@@ -45,52 +132,118 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function loadWordsFromStorage() {
     chrome.storage.local.get(['savedWordsMap'], function(result) {
+      if (chrome.runtime.lastError) { // FIX 2: Add Error Checking
+        console.error("Error loading savedWordsMap from storage:", chrome.runtime.lastError.message);
+        displayWords([]); // Display an empty list or handle error appropriately
+        return;
+      }
       const wordsMap = result.savedWordsMap || {};
-      const wordsArray = Object.keys(wordsMap).map(word => ({
+      let wordsArray = Object.keys(wordsMap).map(word => ({
         word: word,
-        style: wordsMap[word].style 
+        style: wordsMap[word].style,
+        added: wordsMap[word].added
       }));
+
+      // 1. Sort the array
+      sortWordsArray(wordsArray);
+
+      // 2. Filter by search term
+      const searchTerm = searchInput.value.trim().toLowerCase();
+      if (searchTerm) {
+        wordsArray = wordsArray.filter(item => item.word.toLowerCase().includes(searchTerm));
+      }
       displayWords(wordsArray);
     });
   }
 
-  // wordsArray is an array of objects: [{word: "text", style: "styleName"}, ...]
+  function sortWordsArray(wordsArray) {
+    switch (currentSortOrder) {
+      case 'alpha-asc':
+        wordsArray.sort((a, b) => a.word.localeCompare(b.word));
+        break;
+      case 'alpha-desc':
+        wordsArray.sort((a, b) => b.word.localeCompare(a.word));
+        break;
+      case 'time-desc': // Newest first
+        wordsArray.sort((a, b) => (b.added || 0) - (a.added || 0));
+        break;
+      case 'time-asc': // Oldest first
+        wordsArray.sort((a, b) => (a.added || 0) - (b.added || 0));
+        break;
+      default:
+        wordsArray.sort((a, b) => a.word.localeCompare(b.word)); // Fallback to alpha-asc
+    }
+  }
+
+  // wordsArray is an array of objects: [{word: "text", style: "styleName", added: timestamp}, ...]
+  // It now receives a pre-sorted and pre-filtered array.
   function displayWords(wordsArray) {
     wordCountEl.textContent = wordsArray.length;
     
-    if (wordsArray.length === 0) {
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    if (wordsArray.length === 0 && searchTerm) {
+      wordContainer.innerHTML = `
+        <div class="empty-state">
+          <div>No words match your search for "${searchTerm}".</div>
+        </div>
+      `;
+      return;
+    } else if (wordsArray.length === 0) {
       wordContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">📚</div>
           <div>No words saved yet</div>
-          <div style="font-size: 11px; margin-top: 4px;">Start collecting words by using hotkeys 2, 3, or 4 on any webpage!</div>
+          <div style="font-size: 11px; margin-top: 4px;">Start collecting words by using hotkeys on any webpage!</div>
         </div>
       `;
       return;
     }
 
-    // Sort words alphabetically by the word itself
-    wordsArray.sort((a, b) => a.word.localeCompare(b.word));
+    // Array is already sorted before being passed to displayWords.
+    // The old sort line: wordsArray.sort((a, b) => a.word.localeCompare(b.word)); IS REMOVED.
 
-    const wordsHTML = wordsArray.map(item => `
-      <div class="word-item">
-        <span class="word-text">${item.word} <span class="word-style">(${item.style || 'default'})</span></span>
-        <button class="remove-btn" data-word="${item.word}">Remove</button>
-      </div>
-    `).join('');
+    const wordsHTML = wordsArray.map(item => {
+      const formattedTime = item.added ? new Date(item.added).toLocaleString() : 'N/A';
+      const currentStyle = item.style || 'default'; // Ensure 'default' if item.style is undefined
+
+      return `
+        <div class="word-item">
+          <div class="word-details">
+            <span class="word-text">${item.word}</span>
+            <span class="word-style">(${currentStyle})</span>
+            <span class="word-timestamp">Added: ${formattedTime}</span>
+          </div>
+          <div class="word-item-actions">
+            <div class="action-row1">
+              <button class="style-btn ${currentStyle === 'default' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="default" title="Apply Default Style (Red)">2</button>
+              <button class="style-btn ${currentStyle === 'green' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="green" title="Apply Green Style">3</button>
+              <button class="style-btn ${currentStyle === 'underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="underline" title="Apply Underline Style">4</button>
+              <button class="style-btn" data-word="${item.word}" data-action="delete" title="Remove Word">5</button>
+              <button class="style-btn ${currentStyle === 'custom_a' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_a" title="Apply Custom Style A">A</button>
+              <button class="style-btn ${currentStyle === 'custom_b' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_b" title="Apply Custom Style B">B</button>
+            </div>
+            <div class="action-row2">
+              <button class="style-btn ${currentStyle === 'blue' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="blue" title="Apply Blue Style">6</button>
+              <button class="style-btn ${currentStyle === 'yellow_bg' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="yellow_bg" title="Apply Yellow Background Style">7</button>
+              <button class="style-btn ${currentStyle === 'bold' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="bold" title="Apply Bold Style">8</button>
+              <button class="style-btn ${currentStyle === 'italic_underline' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="italic_underline" title="Apply Italic Underline Style">9</button>
+              <button class="style-btn ${currentStyle === 'custom_c' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_c" title="Apply Custom Style C">C</button>
+              <button class="style-btn ${currentStyle === 'custom_d' ? 'active-style-btn' : ''}" data-word="${item.word}" data-style="custom_d" title="Apply Custom Style D">D</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
 
     wordContainer.innerHTML = wordsHTML;
 
-    // Add event listeners to remove buttons
-    const removeButtons = wordContainer.querySelectorAll('.remove-btn');
-    removeButtons.forEach(btn => {
-      btn.addEventListener('click', function() {
-        const word = this.getAttribute('data-word');
-        removeWord(word); // This will trigger a reload via storage change or direct call
-      });
+    // Event listeners for the new buttons
+    const styleButtons = wordContainer.querySelectorAll('.style-btn');
+    styleButtons.forEach(btn => {
+      btn.addEventListener('click', handleWordItemAction);
     });
 
-    // Add scrollbar class if needed (it's already in HTML, but ensure it's dynamic if content shorter)
+    // Add scrollbar class if needed
     if (wordContainer.scrollHeight > wordContainer.clientHeight) {
         wordContainer.classList.add('scrollbar');
     } else {
@@ -193,6 +346,50 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  function handleWordItemAction(event) {
+    const button = event.target;
+    const word = button.dataset.word;
+    const style = button.dataset.style;
+    const action = button.dataset.action;
+
+    if (action === 'delete') {
+      removeWord(word); // This already handles storage and messaging content.js
+    } else if (style) {
+      // Update style in storage directly from popup
+      chrome.storage.local.get(['savedWordsMap'], function(result) {
+        const wordsMap = result.savedWordsMap || {};
+        if (wordsMap.hasOwnProperty(word)) {
+          wordsMap[word].style = style;
+          // The 'added' timestamp is intentionally not modified here
+          chrome.storage.local.set({savedWordsMap: wordsMap}, function() {
+            if (chrome.runtime.lastError) {
+              console.error("Error updating style from popup:", chrome.runtime.lastError.message);
+              alert('Error updating style: ' + chrome.runtime.lastError.message);
+            } else {
+              // Inform content script to apply the style on the page
+              chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs.length > 0 && tabs[0].id) {
+                  chrome.tabs.sendMessage(tabs[0].id, {
+                    action: 'applyStyleToWord', // New action for content.js
+                    word: word,
+                    style: style
+                  }, function(response) {
+                    if (chrome.runtime.lastError) {
+                      console.warn("Error sending applyStyleToWord to content script:", chrome.runtime.lastError.message);
+                    }
+                  });
+                } else {
+                   console.warn("No active tab to send applyStyleToWord message.");
+                }
+              });
+              loadWords(); // Explicitly reload words and refresh UI AFTER storage set and message attempt.
+            }
+          });
+        }
+      });
+    }
+  }
+
   function importWords(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -262,6 +459,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (namespace === 'local' && changes.savedWordsMap) {
       // Data has changed, reload words in the popup
       loadWords();
+    }
+  });
+
+  // Add event listener for the Escape key to close the popup
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      window.close();
     }
   });
 });
