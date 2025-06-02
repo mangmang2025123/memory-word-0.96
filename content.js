@@ -1,30 +1,267 @@
 // Word Memory Assistant - Content Script
 
+// --- Global Variables ---
 let isHotkeyPressed = false;
 let hotkeyPressTimer = null;
-let activeHotkey = null; // To track which hotkey is pressed ('2', '3', '4', '5')
-let savedWords = {}; // Changed from Set to Object to store words and their styles
+let activeHotkey = null;
+let savedWords = {};
 let lastMouseEvent = null;
 let mutationObserver = null;
+let triggerButton = null;
+let stylePalette = null;
+let currentSelectedText = null;
+let currentSelectionRect = null;
 
-// Default style
+// --- Style Constants ---
 const STYLE_DEFAULT = 'default';
 const STYLE_GREEN = 'green';
 const STYLE_UNDERLINE = 'underline';
+const STYLE_BLUE = 'blue';
+const STYLE_YELLOW_BG = 'yellow_bg';
+const STYLE_BOLD = 'bold';
+const STYLE_ITALIC_UNDERLINE = 'italic_underline';
+const STYLE_CUSTOM_A = 'custom_a';
+const STYLE_CUSTOM_B = 'custom_b';
+const STYLE_CUSTOM_C = 'custom_c';
+const STYLE_CUSTOM_D = 'custom_d';
 
+// --- UI Helper Functions ---
+
+// Function to escape special characters for use in a regular expression
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Helper to escape attribute values
+function escapeAttribute(text) {
+    if (text === null || typeof text === 'undefined') return '';
+    return text.toString().replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function ensureTriggerButtonExists() {
+  if (!triggerButton) {
+    triggerButton = document.createElement('button');
+    triggerButton.id = 'word-memory-trigger-btn';
+    triggerButton.textContent = 'W';
+    // console.log("Trigger button created.");
+
+    if (!triggerButton.hasEventListener) {
+        triggerButton.addEventListener('click', function(event) {
+            event.stopPropagation();
+            if (currentSelectedText) {
+                populateStylePalette();
+                showAndPositionStylePalette();
+            }
+        });
+        triggerButton.hasEventListener = true;
+    }
+  }
+}
+
+function ensureStylePaletteExists() {
+  if (!stylePalette) {
+    stylePalette = document.createElement('div');
+    stylePalette.id = 'word-memory-inline-palette';
+    // console.log("Style palette container created.");
+  }
+}
+
+function hideTriggerButton() {
+  if (triggerButton) {
+    triggerButton.style.display = 'none';
+  }
+  currentSelectedText = null;
+  currentSelectionRect = null;
+}
+
+function hideStylePalette() {
+  if (stylePalette) {
+    stylePalette.style.display = 'none';
+  }
+  hideTriggerButton(); // Also hides trigger and clears selection state
+}
+
+function showTriggerButton() {
+  ensureTriggerButtonExists();
+  if (!triggerButton || !currentSelectionRect) return;
+
+  if (!document.body.contains(triggerButton)) {
+    document.body.appendChild(triggerButton);
+  }
+
+  const buttonHeight = triggerButton.offsetHeight || 28;
+  const buttonWidth = triggerButton.offsetWidth || 28;
+
+  let top = currentSelectionRect.top + window.scrollY - buttonHeight - 5;
+  let left = currentSelectionRect.left + window.scrollX + (currentSelectionRect.width / 2) - (buttonWidth / 2);
+
+  if (top < window.scrollY) top = currentSelectionRect.bottom + window.scrollY + 5;
+  if (left < window.scrollX) left = window.scrollX + 5;
+  if (left + buttonWidth > window.scrollX + document.documentElement.clientWidth) {
+      left = window.scrollX + document.documentElement.clientWidth - buttonWidth - 5;
+  }
+   if (top < window.scrollY) top = window.scrollY + 5;
+
+
+  triggerButton.style.top = `${top}px`;
+  triggerButton.style.left = `${left}px`;
+  triggerButton.style.display = 'block';
+}
+
+function populateStylePalette() {
+  ensureStylePaletteExists();
+  if (!stylePalette || !currentSelectedText) {
+    return;
+  }
+
+  const safeSelectedText = escapeAttribute(currentSelectedText);
+  // Active style indication will be handled in showAndPositionStylePalette
+
+  stylePalette.innerHTML = `
+    <div class="action-row1">
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_DEFAULT}" title="Default Style (Red)">2</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_GREEN}" title="Green Style">3</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_UNDERLINE}" title="Underline Style">4</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-action="delete" title="Remove">5</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_CUSTOM_A}" title="Custom Style A">A</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_CUSTOM_B}" title="Custom Style B">B</button>
+    </div>
+    <div class="action-row2">
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_BLUE}" title="Blue Style">6</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_YELLOW_BG}" title="Yellow BG">7</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_BOLD}" title="Bold Style">8</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_ITALIC_UNDERLINE}" title="Italic Underline">9</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_CUSTOM_C}" title="Custom Style C">C</button>
+      <button class="inline-style-btn" data-word="${safeSelectedText}" data-style="${STYLE_CUSTOM_D}" title="Custom Style D">D</button>
+    </div>
+  `;
+
+  const paletteButtons = stylePalette.querySelectorAll('.inline-style-btn');
+  paletteButtons.forEach(btn => {
+    btn.addEventListener('click', handlePaletteButtonClick);
+  });
+}
+
+function handlePaletteButtonClick(event) {
+  event.stopPropagation(); // Prevent click from bubbling to document click listener that hides UI
+
+  const button = event.currentTarget;
+  const selectedText = button.dataset.word; // This was set during populateStylePalette
+  const style = button.dataset.style;
+  const action = button.dataset.action;
+
+  console.log("Word Memory Assistant: Inline palette button clicked."); // For debugging
+  if (selectedText) { // Check if selectedText is not undefined or null
+    console.log("  Target Text:", selectedText);
+  }
+  if (style) {
+    console.log("  Action: Apply style -", style);
+    // Future logic:
+    // const normalizedText = selectedText.toLowerCase().trim().replace(/\s+/g, ' ');
+    // if (isWordSaved(normalizedText)) {
+    //   applyStyle(normalizedText, style);
+    // } else {
+    //   addWordToList(normalizedText, style);
+    // }
+    // showMessage for style applied
+    // hideStylePalette();
+  } else if (action === 'delete') {
+    console.log("  Action: Delete word");
+    // Future logic:
+    // const normalizedText = selectedText.toLowerCase().trim().replace(/\s+/g, ' ');
+    // removeWordFromList(normalizedText);
+    // showMessage for word removed
+    // hideStylePalette();
+  }
+}
+
+function showAndPositionStylePalette() {
+  ensureStylePaletteExists();
+  if (!stylePalette || !currentSelectionRect) return;
+
+  if (!document.body.contains(stylePalette)) {
+    document.body.appendChild(stylePalette);
+  }
+
+  hideTriggerButton();
+
+  const paletteHeight = stylePalette.offsetHeight || 70; // Adjusted estimate
+  const paletteWidth = stylePalette.offsetWidth || 180;  // Adjusted estimate
+
+  let top = currentSelectionRect.top + window.scrollY - paletteHeight - 5;
+  let left = currentSelectionRect.left + window.scrollX + (currentSelectionRect.width / 2) - (paletteWidth / 2);
+
+  if (top < window.scrollY) {
+      top = currentSelectionRect.bottom + window.scrollY + 5;
+  }
+  if (left < window.scrollX) left = window.scrollX + 5;
+  if (left + paletteWidth > window.scrollX + document.documentElement.clientWidth) {
+      left = window.scrollX + document.documentElement.clientWidth - paletteWidth - 5;
+  }
+  if (top < window.scrollY) top = window.scrollY + 5;
+
+  stylePalette.style.top = `${top}px`;
+  stylePalette.style.left = `${left}px`;
+
+  const actualStyleOfSelectedText = getWordStyle(currentSelectedText) || STYLE_DEFAULT;
+  const paletteButtons = stylePalette.querySelectorAll('.inline-style-btn[data-style]');
+  paletteButtons.forEach(button => {
+    button.classList.remove('active-style-btn');
+    if (button.dataset.style === actualStyleOfSelectedText) {
+      button.classList.add('active-style-btn');
+    }
+  });
+
+  stylePalette.style.display = 'block';
+}
+
+// --- Core Logic for Selection Handling ---
+function handleTextSelection(event) {
+  hideStylePalette();
+
+  const selection = window.getSelection();
+  let selectedText = selection.toString();
+
+  selectedText = selectedText.trim();
+  selectedText = selectedText.replace(/\s+/g, ' ');
+
+  if (!selectedText || selectedText.length < 2) {
+    return;
+  }
+
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    currentSelectionRect = range.getBoundingClientRect();
+    currentSelectedText = selectedText;
+
+    ensureTriggerButtonExists();
+
+    setTimeout(function() {
+      const stillSelectedText = window.getSelection().toString().trim().replace(/\s+/g, ' ');
+      if (currentSelectedText && stillSelectedText === currentSelectedText) {
+        showTriggerButton();
+      } else {
+        hideStylePalette();
+      }
+    }, 50);
+  } else {
+    hideStylePalette();
+  }
+}
+
+// --- Event Listeners & Initial Setup ---
 // Load saved words from storage
 chrome.storage.local.get(['savedWordsMap'], function(result) {
   if (result.savedWordsMap && typeof result.savedWordsMap === 'object') {
     savedWords = result.savedWordsMap;
   } else {
-    // Migration from old Set format if necessary
     chrome.storage.local.get(['savedWords'], function(oldResult) {
       if (oldResult.savedWords && Array.isArray(oldResult.savedWords)) {
         savedWords = {};
         oldResult.savedWords.forEach(word => {
           savedWords[word] = { style: STYLE_DEFAULT };
         });
-        saveWordsToStorage(); // Save in new format
+        saveWordsToStorage();
       } else {
         savedWords = {};
       }
@@ -32,10 +269,12 @@ chrome.storage.local.get(['savedWordsMap'], function(result) {
   }
 
   function onDomReady() {
+    ensureTriggerButtonExists();
+    ensureStylePaletteExists();
     if (Object.keys(savedWords).length > 0) {
-      highlightSavedWords(); // Initial highlight for static content
+      highlightSavedWords();
     }
-    initMutationObserver(); // Start observing for dynamic content
+    initMutationObserver();
   }
 
   if (document.readyState === 'loading') {
@@ -45,12 +284,80 @@ chrome.storage.local.get(['savedWordsMap'], function(result) {
   }
 });
 
-// Track mouse position
+// Storage Change Listener
+chrome.storage.onChanged.addListener(function(changes, namespace) {
+  if (namespace === 'local' && changes.savedWordsMap) {
+    console.log("Word Memory Assistant: savedWordsMap changed externally. Updating content script's savedWords.");
+    const newWordsMap = changes.savedWordsMap.newValue || {};
+    savedWords = newWordsMap;
+
+    const allHighlightSelectors = [
+      '.word-memory-highlight', `.word-memory-highlight-${STYLE_GREEN}`,
+      `.word-memory-highlight-${STYLE_UNDERLINE}`, `.word-memory-highlight-${STYLE_BLUE}`,
+      `.word-memory-highlight-${STYLE_YELLOW_BG}`, `.word-memory-highlight-${STYLE_BOLD}`,
+      `.word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`, `.word-memory-highlight-${STYLE_CUSTOM_A}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_B}`, `.word-memory-highlight-${STYLE_CUSTOM_C}`,
+      `.word-memory-highlight-${STYLE_CUSTOM_D}`
+    ];
+    try {
+      document.querySelectorAll(allHighlightSelectors.join(', ')).forEach(span => {
+          const parent = span.parentElement;
+          if (parent) {
+              parent.replaceChild(document.createTextNode(span.textContent), span);
+              parent.normalize();
+          }
+      });
+    } catch (e) {
+      console.error("Word Memory Assistant: Error removing old highlights:", e);
+    }
+
+    if (Object.keys(savedWords).length > 0) {
+        highlightSavedWords();
+    }
+  }
+});
+
+// Mouse/Document Event Listeners
 document.addEventListener('mousemove', function(e) {
   lastMouseEvent = e;
 });
 
-// --- Helper Functions ---
+document.addEventListener('click', function(event) {
+  let clickedOnExtensionUI = false;
+  if (triggerButton && triggerButton.style.display === 'block' && triggerButton.contains(event.target)) {
+    clickedOnExtensionUI = true;
+  }
+  if (stylePalette && stylePalette.style.display === 'block' && stylePalette.contains(event.target)) {
+    clickedOnExtensionUI = true;
+  }
+
+  if (!clickedOnExtensionUI) {
+    const selection = window.getSelection();
+    if (!selection || selection.toString().trim() === '') {
+        hideStylePalette();
+    } else {
+        if (stylePalette && stylePalette.style.display === 'block') {
+            hideStylePalette();
+        }
+    }
+  }
+}, true);
+
+document.addEventListener('mouseup', function(event) {
+  if (triggerButton && triggerButton.contains(event.target)) return;
+  if (stylePalette && stylePalette.style.display === 'block' && stylePalette.contains(event.target)) return;
+  handleTextSelection(event);
+});
+
+document.addEventListener('dblclick', function(event) {
+  if (triggerButton && triggerButton.contains(event.target)) return;
+  if (stylePalette && stylePalette.style.display === 'block' && stylePalette.contains(event.target)) return;
+  handleTextSelection(event);
+});
+
+
+// --- Hotkey & Word/Style Logic --- (Includes functions called by UI helpers or event listeners)
+
 function getSelectedWord() {
   return lastMouseEvent ? getWordUnderCursor(lastMouseEvent) : null;
 }
@@ -66,8 +373,7 @@ function getWordStyle(word) {
   return null;
 }
 
-// --- Hotkey Event Listeners ---
-const HOTKEYS = ['2', '3', '4', '5'];
+const HOTKEYS = ['2', '3', '4', '5', '6', '7', '8', '9'];
 document.addEventListener('keydown', function(e) {
   if (HOTKEYS.includes(e.key) && !isHotkeyPressed) {
     isHotkeyPressed = true;
@@ -77,21 +383,19 @@ document.addEventListener('keydown', function(e) {
     hotkeyPressTimer = setTimeout(() => {
       if (isHotkeyPressed && activeHotkey && lastMouseEvent) {
         const word = getSelectedWord();
-        if (word && word.length > 2) { // Basic validation
+        if (word && word.length > 2) {
           handleHotkeyAction(activeHotkey, word);
         }
       }
-      // Reset after action or if conditions not met
       isHotkeyPressed = false;
       activeHotkey = null;
-    }, 500); // 0.5-second delay
+    }, 500);
   }
 });
 
 document.addEventListener('keyup', function(e) {
   if (HOTKEYS.includes(e.key)) {
     if (isHotkeyPressed && activeHotkey === e.key) {
-      // Key was released before 0.5s timer fired
       clearTimeout(hotkeyPressTimer);
       isHotkeyPressed = false;
       activeHotkey = null;
@@ -107,18 +411,13 @@ function handleHotkeyAction(key, word) {
     case '2':
       if (wordIsSaved) {
         if (currentStyle === STYLE_GREEN || currentStyle === STYLE_UNDERLINE) {
-          // Change to default style
           applyStyle(word, STYLE_DEFAULT);
           showMessage(`"${word}" style changed to default.`, 'info');
         } else {
-          // If default or any other, remove it (toggle off)
           removeWordFromList(word);
-          // message is shown by removeWordFromList
         }
       } else {
-        // Add with default style
         addWordToList(word, STYLE_DEFAULT);
-        // message is shown by addWordToList
       }
       break;
     case '3':
@@ -148,21 +447,78 @@ function handleHotkeyAction(key, word) {
     case '5':
       if (wordIsSaved) {
         removeWordFromList(word);
-        // message is shown by removeWordFromList
       } else {
         showMessage(`"${word}" is not in your list.`, 'info');
+      }
+      break;
+    case '6':
+      if (wordIsSaved) {
+        if (currentStyle !== STYLE_BLUE) {
+          applyStyle(word, STYLE_BLUE);
+          showMessage(`"${word}" style changed to blue.`, 'info');
+        } else {
+          showMessage(`"${word}" is already blue.`, 'info');
+        }
+      } else {
+        addWordToList(word, STYLE_BLUE);
+      }
+      break;
+    case '7':
+      if (wordIsSaved) {
+        if (currentStyle !== STYLE_YELLOW_BG) {
+          applyStyle(word, STYLE_YELLOW_BG);
+          showMessage(`"${word}" style changed to yellow background.`, 'info');
+        } else {
+          showMessage(`"${word}" is already yellow background.`, 'info');
+        }
+      } else {
+        addWordToList(word, STYLE_YELLOW_BG);
+      }
+      break;
+    case '8':
+      if (wordIsSaved) {
+        if (currentStyle !== STYLE_BOLD) {
+          applyStyle(word, STYLE_BOLD);
+          showMessage(`"${word}" style changed to bold.`, 'info');
+        } else {
+          showMessage(`"${word}" is already bold.`, 'info');
+        }
+      } else {
+        addWordToList(word, STYLE_BOLD);
+      }
+      break;
+    case '9':
+      if (wordIsSaved) {
+        if (currentStyle !== STYLE_ITALIC_UNDERLINE) {
+          applyStyle(word, STYLE_ITALIC_UNDERLINE);
+          showMessage(`"${word}" style changed to italic underline.`, 'info');
+        } else {
+          showMessage(`"${word}" is already italic underline.`, 'info');
+        }
+      } else {
+        addWordToList(word, STYLE_ITALIC_UNDERLINE);
       }
       break;
   }
 }
 
-// Extract word under cursor
 function getWordUnderCursor(e) {
   const element = e.target;
   let word = null;
 
-  // Priority 1: Check if the cursor is directly over a highlight span
-  const highlightClasses = ['word-memory-highlight', `word-memory-highlight-${STYLE_GREEN}`, `word-memory-highlight-${STYLE_UNDERLINE}`];
+  const highlightClasses = [
+    'word-memory-highlight',
+    `word-memory-highlight-${STYLE_GREEN}`,
+    `word-memory-highlight-${STYLE_UNDERLINE}`,
+    `word-memory-highlight-${STYLE_BLUE}`,
+    `word-memory-highlight-${STYLE_YELLOW_BG}`,
+    `word-memory-highlight-${STYLE_BOLD}`,
+    `word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`,
+    `word-memory-highlight-${STYLE_CUSTOM_A}`,
+    `word-memory-highlight-${STYLE_CUSTOM_B}`,
+    `word-memory-highlight-${STYLE_CUSTOM_C}`,
+    `word-memory-highlight-${STYLE_CUSTOM_D}`
+  ];
   for (const cls of highlightClasses) {
     if (element.classList.contains(cls)) {
       const textFromHighlight = element.textContent.toLowerCase().trim();
@@ -174,14 +530,12 @@ function getWordUnderCursor(e) {
     }
   }
   
-  // Priority 2: Skip script, style, or our own message elements if not a highlight
   if (element.tagName === 'SCRIPT' || 
       element.tagName === 'STYLE' ||
       element.closest('.word-memory-message')) {
     return null;
   }
   
-  // Priority 3: Try multiple methods (simplified for brevity, original logic was more complex)
   const range = document.caretRangeFromPoint(e.clientX, e.clientY);
   if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
     const textNode = range.startContainer;
@@ -197,14 +551,7 @@ function getWordUnderCursor(e) {
   
   if (!word && (element.textContent || element.innerText)) {
      const text = (element.textContent || element.innerText).trim();
-     // Basic word extraction if caretRangeFromPoint fails or not on text node
-     // This is a simplified fallback. A more robust solution might involve
-     // more sophisticated text segmentation if needed.
-     const wordsInElement = text.split(/\s+/); // Split by space
-     // A more targeted approach would be needed if the element contains multiple words
-     // and we need the specific one under the cursor.
-     // For now, if caretRangeFromPoint fails, this might pick up the first word
-     // or a word if the element itself is small and mostly contains one word.
+     const wordsInElement = text.split(/\s+/);
      if (wordsInElement.length > 0) {
         const potentialWord = wordsInElement[0].toLowerCase().replace(/[^a-z]/gi, '');
         if (potentialWord.length > 2) word = potentialWord;
@@ -215,53 +562,58 @@ function getWordUnderCursor(e) {
   return resultWord;
 }
 
-
-// Add word to saved list with a specific style
 function addWordToList(word, style) {
   if (!word || !style) return;
-  savedWords[word] = { style: style };
+  savedWords[word] = { style: style, added: Date.now() };
   saveWordsToStorage();
-  removeHighlight(word); // Remove any existing highlight before applying new one
+  removeHighlight(word);
   applyStyleToWordOccurrences(word, style);
   showMessage(`"${word}" added with ${style} style.`, 'success');
 }
 
-// Remove word from saved list
 function removeWordFromList(word) {
   if (!isWordSaved(word)) return;
   delete savedWords[word];
   saveWordsToStorage();
-  removeHighlight(word); // This needs to remove all styles
+  removeHighlight(word);
   showMessage(`"${word}" removed from your word list.`, 'info');
 }
 
-// Apply a specific style to a word (updates if exists, adds if new)
-function applyStyle(word, style) {
-  if (!word || !style) return;
-  savedWords[word] = { style: style };
-  saveWordsToStorage();
-  removeHighlight(word); // Remove previous styling first
-  applyStyleToWordOccurrences(word, style);
-  // Message is typically handled by the calling hotkey function
+function applyStyle(word, newStyle) {
+  if (!word || !newStyle) return;
+  if (savedWords.hasOwnProperty(word)) {
+    savedWords[word].style = newStyle;
+    saveWordsToStorage();
+    removeHighlight(word);
+    applyStyleToWordOccurrences(word, newStyle);
+  } else {
+    console.warn(`applyStyle called for word "${word}" which was not found in savedWords. This may indicate a logic error.`);
+  }
 }
 
-// Save words (now an object) to Chrome storage
 function saveWordsToStorage() {
   chrome.storage.local.set({
-    savedWordsMap: savedWords // Use a new key for the object format
+    savedWordsMap: savedWords
   });
 }
 
 function getHighlightClass(style) {
   if (style === STYLE_GREEN) return `word-memory-highlight-${STYLE_GREEN}`;
   if (style === STYLE_UNDERLINE) return `word-memory-highlight-${STYLE_UNDERLINE}`;
-  return 'word-memory-highlight'; // Default
+  if (style === STYLE_BLUE) return `word-memory-highlight-${STYLE_BLUE}`;
+  if (style === STYLE_YELLOW_BG) return `word-memory-highlight-${STYLE_YELLOW_BG}`;
+  if (style === STYLE_BOLD) return `word-memory-highlight-${STYLE_BOLD}`;
+  if (style === STYLE_ITALIC_UNDERLINE) return `word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`;
+  if (style === STYLE_CUSTOM_A) return `word-memory-highlight-${STYLE_CUSTOM_A}`;
+  if (style === STYLE_CUSTOM_B) return `word-memory-highlight-${STYLE_CUSTOM_B}`;
+  if (style === STYLE_CUSTOM_C) return `word-memory-highlight-${STYLE_CUSTOM_C}`;
+  if (style === STYLE_CUSTOM_D) return `word-memory-highlight-${STYLE_CUSTOM_D}`;
+  return 'word-memory-highlight';
 }
 
-// Highlight a specific word with a given style
 function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
   const className = getHighlightClass(style);
-  const regex = new RegExp(`\\b${word}\\b`, 'gi');
+  const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
   const walker = document.createTreeWalker(
     rootNode,
     NodeFilter.SHOW_TEXT,
@@ -271,10 +623,18 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
           const parentTag = node.parentElement.tagName;
           const parentClassList = node.parentElement.classList;
           if (parentTag === 'SCRIPT' || parentTag === 'STYLE' ||
-              parentClassList.contains('word-memory-highlight') || // Default style
-              parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) || // Green style
-              parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) || // Underline style
-              node.parentElement.closest('.word-memory-highlight, .word-memory-highlight-green, .word-memory-highlight-underline')) {
+              parentClassList.contains('word-memory-highlight') ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`) ||
+              node.parentElement.closest('.word-memory-highlight, .word-memory-highlight-green, .word-memory-highlight-underline, .word-memory-highlight-blue, .word-memory-highlight-yellow_bg, .word-memory-highlight-bold, .word-memory-highlight-italic_underline, .word-memory-highlight-custom_a, .word-memory-highlight-custom_b, .word-memory-highlight-custom_c, .word-memory-highlight-custom_d')) {
             return NodeFilter.FILTER_REJECT;
           }
         }
@@ -296,11 +656,18 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
   textNodesToReplace.forEach(textNode => {
     if (!textNode.parentElement || !rootNode.contains(textNode)) return;
     
-    // Check if parent itself became a highlight (e.g. by sibling node processing)
     const parentClasses = textNode.parentElement.classList;
-    if (parentClasses.contains('word-memory-highlight') || 
+    if (parentClasses.contains('word-memory-highlight') ||
         parentClasses.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
-        parentClasses.contains(`word-memory-highlight-${STYLE_UNDERLINE}`)) {
+        parentClasses.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+        parentClasses.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) {
         return;
     }
 
@@ -313,7 +680,7 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
         fragment.appendChild(document.createTextNode(textNode.textContent.substring(lastIndex, match.index)));
       }
       const span = document.createElement('span');
-      span.className = className; // Apply style-specific class
+      span.className = className;
       span.textContent = match[0];
       fragment.appendChild(span);
       lastIndex = regex.lastIndex;
@@ -327,21 +694,30 @@ function applyStyleToWordOccurrences(word, style, rootNode = document.body) {
   });
 }
 
-// Highlight all saved words across the entire document based on their stored style
 function highlightSavedWords() {
-  for (const word in savedWords) {
+  const wordsToHighlight = Object.keys(savedWords);
+  wordsToHighlight.sort((a, b) => b.length - a.length);
+
+  wordsToHighlight.forEach(word => {
     if (savedWords.hasOwnProperty(word)) {
       applyStyleToWordOccurrences(word, savedWords[word].style, document.body);
     }
-  }
+  });
 }
 
-// Remove all highlights for a specific word, regardless of style
 function removeHighlight(word) {
   const highlightSelectors = [
     '.word-memory-highlight', 
-    `.word-memory-highlight-${STYLE_GREEN}`, 
-    `.word-memory-highlight-${STYLE_UNDERLINE}`
+    `.word-memory-highlight-${STYLE_GREEN}`,
+    `.word-memory-highlight-${STYLE_UNDERLINE}`,
+    `.word-memory-highlight-${STYLE_BLUE}`,
+    `.word-memory-highlight-${STYLE_YELLOW_BG}`,
+    `.word-memory-highlight-${STYLE_BOLD}`,
+    `.word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_A}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_B}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_C}`,
+    `.word-memory-highlight-${STYLE_CUSTOM_D}`
   ];
   highlightSelectors.forEach(selector => {
     const highlights = document.querySelectorAll(selector);
@@ -350,14 +726,13 @@ function removeHighlight(word) {
         const parent = highlight.parentElement;
         if (parent) {
           parent.replaceChild(document.createTextNode(highlight.textContent), highlight);
-          parent.normalize(); // Merges adjacent text nodes
+          parent.normalize();
         }
       }
     });
   });
 }
 
-// Show success/info messages (no changes needed to this function itself)
 function showMessage(text, type) {
   const message = document.createElement('div');
   message.className = `word-memory-message ${type}`;
@@ -381,7 +756,7 @@ function showMessage(text, type) {
 
 // MutationObserver callback and initialization
 function mutationCallback(mutationsList, observer) {
-  if (Object.keys(savedWords).length === 0) { // Adjusted for object
+  if (Object.keys(savedWords).length === 0) {
     return;
   }
 
@@ -390,35 +765,54 @@ function mutationCallback(mutationsList, observer) {
       mutation.addedNodes.forEach(addedNode => {
         if (addedNode.nodeType === Node.ELEMENT_NODE) {
           const classList = addedNode.classList;
-          if (classList && (classList.contains('word-memory-highlight') || // Check all highlight classes
+          if (classList && (classList.contains('word-memory-highlight') ||
               classList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
-              classList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`)) ||
+              classList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              classList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) ||
               addedNode.closest('.word-memory-message') ||
               addedNode.tagName === 'SCRIPT' || 
               addedNode.tagName === 'STYLE') {
             return; 
           }
-          for (const word in savedWords) {
+          const wordsToApply = Object.keys(savedWords).sort((a, b) => b.length - a.length);
+          wordsToApply.forEach(word => {
             if (savedWords.hasOwnProperty(word)) {
-              applyStyleToWordOccurrences(word, savedWords[word].style, addedNode);
+                 applyStyleToWordOccurrences(word, savedWords[word].style, addedNode);
             }
-          }
+          });
+
         } else if (addedNode.nodeType === Node.TEXT_NODE && addedNode.parentElement) {
           const parentElement = addedNode.parentElement;
           const parentClassList = parentElement.classList;
           if (parentClassList && (parentClassList.contains('word-memory-highlight') ||
               parentClassList.contains(`word-memory-highlight-${STYLE_GREEN}`) ||
-              parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`)) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_UNDERLINE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_BLUE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_YELLOW_BG}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_BOLD}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_ITALIC_UNDERLINE}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_A}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_B}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_C}`) ||
+              parentClassList.contains(`word-memory-highlight-${STYLE_CUSTOM_D}`)) ||
               parentElement.closest('.word-memory-message') ||
               parentElement.tagName === 'SCRIPT' ||
               parentElement.tagName === 'STYLE') {
             return;
           }
-          for (const word in savedWords) {
+          const wordsToApply = Object.keys(savedWords).sort((a, b) => b.length - a.length);
+          wordsToApply.forEach(word => {
             if (savedWords.hasOwnProperty(word)) {
-              applyStyleToWordOccurrences(word, savedWords[word].style, parentElement);
+                applyStyleToWordOccurrences(word, savedWords[word].style, parentElement);
             }
-          }
+          });
         }
       });
     }
@@ -437,28 +831,38 @@ function initMutationObserver() {
   mutationObserver.observe(document.body, observerOptions);
 }
 
-// Listen for messages from popup
+// Message Listener from Popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'getWords') {
-    // Send words with their styles
-    const wordsWithStyles = [];
+    const wordsWithDetails = [];
     for (const word in savedWords) {
       if (savedWords.hasOwnProperty(word)) {
-        wordsWithStyles.push({ word: word, style: savedWords[word].style });
+        wordsWithDetails.push({
+          word: word,
+          style: savedWords[word].style,
+          added: savedWords[word].added
+        });
       }
     }
-    sendResponse({words: wordsWithStyles});
+    sendResponse({words: wordsWithDetails});
   } else if (request.action === 'removeWord') {
-    removeWordFromList(request.word); // Use new function
+    removeWordFromList(request.word);
     sendResponse({success: true});
   } else if (request.action === 'clearAllWords') {
     const wordsToRemove = Object.keys(savedWords);
-    savedWords = {}; // Clear local object
-    saveWordsToStorage(); // Save empty object to storage
+    savedWords = {};
+    saveWordsToStorage();
     
-    // Remove all highlights from the page
     wordsToRemove.forEach(word => removeHighlight(word)); 
     
     sendResponse({success: true});
+  } else if (request.action === 'applyStyleToWord') {
+    if (request.word && request.style) {
+      applyStyle(request.word, request.style);
+      showMessage(`"${request.word}" style changed to ${request.style}.`, 'info');
+      sendResponse({success: true});
+    } else {
+      sendResponse({success: false, error: "Missing word or style for applyStyleToWord"});
+    }
   }
 });

@@ -4,32 +4,15 @@
   <meta charset="utf-8">
   <style>
     body {
-      width: 350px;
-      min-height: 400px;
+      width: 450px;
+      min-height: 550px;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f8f9fa;
     }
 
-    .header {
-      background: #2c3e50;
-      color: white;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .header h1 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .header p {
-      margin: 5px 0 0 0;
-      font-size: 12px;
-      opacity: 0.8;
-    }
+    /* Header styles removed */
 
     .content {
       padding: 16px;
@@ -54,6 +37,50 @@
       font-size: 12px;
       color: #7f8c8d;
       margin-top: 4px;
+    }
+
+    .sort-controls { /* Style for the sort controls container */
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px; /* Space below sort controls */
+    }
+
+    .sort-controls label {
+      margin-right: 8px;
+      font-size: 13px;
+      color: #2c3e50;
+    }
+
+    .sort-controls select {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 13px;
+      flex-grow: 1; /* Allow select to take available space */
+    }
+
+    #searchInput { /* Style for the search input */
+      width: calc(100% - 22px); /* Full width minus padding and border */
+      padding: 10px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box; /* Ensure padding and border don't add to width */
+    }
+
+    .manual-add-section { /* New style for the manual add section */
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .manual-add-section input[type="text"] { /* Style for the input field */
+      flex-grow: 1; /* Allow input to take available space */
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
     }
 
     .actions {
@@ -95,7 +122,7 @@
       background: white;
       border-radius: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      max-height: 250px;
+      max-height: 400px; /* Increased from 250px */
       overflow-y: auto;
     }
 
@@ -112,29 +139,116 @@
     .word-item {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 12px 16px;
+      align-items: flex-start; /* Align items to the top for multi-line details */
+      padding: 10px 12px; /* Slightly reduced padding */
       border-bottom: 1px solid #ecf0f1;
       transition: background-color 0.2s;
     }
 
-    .word-item:hover {
-      background: #f8f9fa;
-    }
-
-    .word-item:last-child {
-      border-bottom: none;
-      border-radius: 0 0 8px 8px;
+    .word-details {
+      display: flex;
+      flex-direction: column; /* Stack word, style, timestamp vertically */
+      flex-grow: 1; /* Allow details to take available space */
+      margin-right: 10px; /* Space between details and actions */
     }
 
     .word-text {
-      font-size: 14px;
+      font-size: 15px; /* Slightly larger word text */
       color: #2c3e50;
-      font-weight: 500;
+      font-weight: 600; /* Bolder word text */
     }
 
-    .remove-btn {
-      background: #e74c3c;
+    .word-style { /* Style for the (style) part of the word item */
+      color: #555; /* Darker grey for style */
+      font-size: 0.85em;
+      margin-left: 0px; /* No left margin, new line */
+      margin-top: 2px;
+    }
+
+    .word-timestamp {
+      font-size: 0.75em; /* Smaller timestamp */
+      color: #7f8c8d;
+      margin-top: 4px;
+    }
+
+    .word-item-actions {
+      display: flex;
+      flex-direction: column; /* Stack button rows vertically */
+      align-items: flex-end; /* Align buttons to the right */
+    }
+
+    .action-row1, .action-row2 {
+      display: flex; /* Buttons in a row */
+    }
+
+    .action-row2 {
+      margin-top: 4px; /* Space between button rows */
+    }
+
+    .style-btn {
+      padding: 2px 4px; /* Adjusted padding */
+      margin: 1px 2px; /* Minimal margin - keeping as is */
+      font-size: 10px; /* Keeping as is, already small */
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      color: #333;
+      min-width: 20px; /* Ensure buttons are not too squished */
+      text-align: center;
+    }
+
+    .style-btn:hover {
+      background-color: #e0e0e0;
+      border-color: #bbb;
+    }
+
+    /* Specific style for delete button (hotkey 5) to make it stand out */
+    .style-btn[data-action="delete"] {
+        background-color: #e74c3c;
+        color: white;
+        border-color: #c0392b;
+    }
+    .style-btn[data-action="delete"]:hover {
+        background-color: #c0392b;
+    }
+
+    .active-style-btn {
+      background-color: #4CAF50 !important; /* Example: Green background */
+      color: white !important;
+      border: 1px solid #388E3C !important; /* Example: Darker green border */
+      font-weight: bold !important;
+    }
+
+    /* Optional: Define hover for active button if different from normal style-btn hover */
+    /* .active-style-btn:hover { background-color: #45a049; } */
+
+    .help-button {
+      position: absolute;
+      top: 8px; /* Adjust as needed for padding from top */
+      right: 8px; /* Adjust as needed for padding from right */
+      width: 24px; /* Small, circular button */
+      height: 24px;
+      padding: 0;
+      border-radius: 50%; /* Makes it circular */
+      border: 1px solid #ccc;
+      background-color: #f0f0f0;
+      color: #333;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+      line-height: 22px; /* Vertically center the '?' */
+      z-index: 100; /* Ensure it's above other content if necessary */
+    }
+
+    .help-button:hover {
+      background-color: #e0e0e0;
+      border-color: #bbb;
+    }
+
+    .remove-btn { /* Old button, can be removed if no longer used directly */
+      background: #e74c3c; /* Or keep if it's used elsewhere, but it's superseded in word-item */
       color: white;
       border: none;
       padding: 4px 8px;
@@ -159,11 +273,7 @@
       margin-bottom: 8px;
     }
 
-    .word-style { /* Style for the (style) part of the word item */
-      color: #7f8c8d;
-      font-size: 0.9em;
-      margin-left: 4px;
-    }
+    /* .word-style is now defined above */
 
     .instructions {
       background: #e8f4fd;
@@ -200,19 +310,31 @@
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Word Memory Assistant</h1>
-    <p>Build your vocabulary effortlessly</p>
-  </div>
+  <button id="helpBtn" class="help-button">?</button>
+  <!-- Header div removed -->
 
   <div class="content">
-    <div class="instructions">
-      <strong>How to use:</strong> Place your mouse over any word. Press and hold '2' to set/toggle red highlight, '3' for green style, '4' for underline. Press '5' to remove. New words are saved automatically.
-    </div>
 
     <div class="stats">
       <div class="stats-number" id="wordCount">0</div>
       <div class="stats-label">Words in your list</div>
+    </div>
+
+    <div class="sort-controls">
+      <label for="sortOrder">Sort by:</label>
+      <select id="sortOrder">
+        <option value="alpha-asc">Alphabetical (A-Z)</option>
+        <option value="alpha-desc">Alphabetical (Z-A)</option>
+        <option value="time-desc">Time Added (Newest First)</option>
+        <option value="time-asc">Time Added (Oldest First)</option>
+      </select>
+    </div>
+
+    <input type="text" id="searchInput" placeholder="Search words...">
+
+    <div class="manual-add-section">
+      <input type="text" id="manualWordInput" placeholder="Enter a word">
+      <button id="manualAddBtn" class="btn btn-primary">Add Word</button>
     </div>
 
     <div class="actions">
