@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Word Memory Assistant - Help</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 15px;
+      background-color: #f8f9fa;
+      color: #333;
+      width: 420px; /* Slightly less than popup width to account for padding */
+      min-height: 520px; /* Slightly less than popup min-height */
+      margin: 0 auto; /* Centering if window is larger than body width */
+    }
+    h1 {
+      font-size: 20px;
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .instructions-content {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .instructions-content h2 {
+      font-size: 16px;
+      color: #34495e;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ecf0f1;
+      padding-bottom: 5px;
+    }
+    .instructions-content p {
+      margin-bottom: 10px;
+    }
+    .instructions-content ul {
+      list-style-type: disc;
+      margin-left: 20px;
+      margin-bottom: 10px;
+    }
+    .instructions-content li {
+      margin-bottom: 5px;
+    }
+    .instructions-content strong {
+      font-weight: 600;
+    }
+    .back-button-container {
+      margin-top: 25px;
+      text-align: center;
+    }
+    .back-button {
+      display: inline-block;
+      padding: 8px 15px;
+      background-color: #3498db;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+    }
+    .back-button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Word Memory Assistant - Help & Instructions</h1>
+
+  <div class="instructions-content">
+    <h2>General Usage</h2>
+    <p>The Word Memory Assistant helps you learn new words by highlighting them on webpages. You can save words, assign different visual styles, and manage your list through the popup window.</p>
+
+    <h2>Hotkey Operations</h2>
+    <p>To use hotkeys, hover your mouse cursor over a word on any webpage and then <strong>press and hold</strong> the corresponding numeric key for about 0.5 seconds.</p>
+    <ul>
+      <li><strong>Key <code>2</code> (Default/Red Style):</strong>
+        <ul>
+          <li>If word is unsaved: Adds word with default red highlight.</li>
+          <li>If word has a different style: Changes style to default red.</li>
+          <li>If word is already default red: Removes the word from your list.</li>
+        </ul>
+      </li>
+      <li><strong>Key <code>3</code> (Green Style):</strong>
+        <ul>
+          <li>If word is unsaved: Adds word with green highlight.</li>
+          <li>If word has a different style: Changes style to green.</li>
+          <li>If word is already green: No change (message shown).</li>
+        </ul>
+      </li>
+      <li><strong>Key <code>4</code> (Underline Style):</strong>
+        <ul>
+          <li>If word is unsaved: Adds word with underline style.</li>
+          <li>If word has a different style: Changes style to underline.</li>
+          <li>If word is already underlined: No change (message shown).</li>
+        </ul>
+      </li>
+      <li><strong>Key <code>5</code> (Remove Word):</strong>
+        <ul>
+          <li>If word is saved: Removes it from your list.</li>
+          <li>If word is unsaved: No action (message shown).</li>
+        </ul>
+      </li>
+      <li><strong>Key <code>6</code> (Blue Highlight):</strong> Applies blue highlight. (Behavior: Add if unsaved, change style if saved, message if already this style).</li>
+      <li><strong>Key <code>7</code> (Yellow Background):</strong> Applies yellow background. (Behavior: Add if unsaved, change style if saved, message if already this style).</li>
+      <li><strong>Key <code>8</code> (Bold Text):</strong> Applies bold text. (Behavior: Add if unsaved, change style if saved, message if already this style).</li>
+      <li><strong>Key <code>9</code> (Italic Underline):</strong> Applies italic underline. (Behavior: Add if unsaved, change style if saved, message if already this style).</li>
+    </ul>
+
+    <h2>Popup Window Features</h2>
+    <p>Click the extension icon in your browser toolbar to open the popup window. From here, you can:</p>
+    <ul>
+      <li><strong>View Word List:</strong> See all your saved words, their current style, and the date they were added.</li>
+      <li><strong>Change Styles:</strong> Use the buttons next to each word (<code>2</code>, <code>3</code>, <code>4</code>, <code>6</code>, <code>7</code>, <code>8</code>, <code>9</code>, <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code>) to change its style.</li>
+      <li><strong>Delete Words:</strong> Click button <code>5</code> next to a word to remove it.</li>
+      <li><strong>Popup-Only Styles:</strong> Styles <code>A</code>, <code>B</code>, <code>C</code>, and <code>D</code> can only be applied using their respective buttons in this popup window. They do not have hotkeys.
+          <ul>
+              <li><strong>A:</strong> Light grey background, dark text.</li>
+              <li><strong>B:</strong> Dark slate background, light text.</li>
+              <li><strong>C:</strong> Pale yellow background, brown text/border.</li>
+              <li><strong>D:</strong> Light pink background, dark magenta text, monospace font.</li>
+          </ul>
+      </li>
+      <li><strong>Manually Add Words/Phrases:</strong> Type a word or short phrase (letters and spaces only) into the input field and click "Add Word". It will be added with the default red style.</li>
+      <li><strong>Search:</strong> Use the search box to filter your word list.</li>
+      <li><strong>Sort:</strong> Choose a sort order for your list (Alphabetical or Time Added). This preference is saved.</li>
+      <li><strong>Import/Export:</strong> Save your word list to a file or load a list from a file.</li>
+      <li><strong>Clear All:</strong> Remove all words from your list (confirmation required).</li>
+      <li><strong>Refresh List:</strong> Manually reload the list from storage.</li>
+    </ul>
+  </div>
+
+  <div class="back-button-container">
+    <a href="popup.html" class="back-button">Back to Main View</a>
+  </div>
+
+</body>
+</html>
